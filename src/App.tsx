@@ -1,17 +1,11 @@
-/* {
-  playerHeight: 10,
-  playerWidth: 4,
-  playerBgColor: '#ff0000',
-} */
-
-import { Component, For, Setter, Show, Suspense, createResource, createSignal } from "solid-js";
-
+import { Component, For, Setter, Show, Suspense, createEffect, createResource, createSignal, onCleanup } from "solid-js";
 
 const Sidebar: Component<{
   currentFile?: FileSystemFileHandle;
   setCurrentFile: Setter<FileSystemFileHandle | undefined>;
 }> = (props) => {
   const [jsonFileHandles, setJsonFileHandles] = createSignal<FileSystemFileHandle[]>([]);
+
   return (
     <aside class="flex flex-col justify-between w-64 p-4 bg-zinc-800 h-full">
       <nav class="grid justify-start">
@@ -46,16 +40,57 @@ const Sidebar: Component<{
   )
 }
 
+function parseJsonFile(inputJson: string) {
+  const json = JSON.parse(inputJson);
+  return Object.entries(json).filter(
+    (entry): entry is [string, number] => typeof entry[1] === 'number'
+  );
+}
+
 const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
-  const [contents] = createResource(async () => {
+  const [contents, { mutate }] = createResource(async () => {
     const file = await props.currentFile.getFile();
-    return await file.text();
+    const text = await file.text();
+    console.log(parseJsonFile(text));
+    return text;
   });
 
+  const write = async (value: string) => {
+    mutate(value);
+    const file = await props.currentFile.createWritable();
+    await file.write(value);
+    await file.close();
+  }
+
   return (
-    <Suspense fallback={<textarea class="w-full" value="Loading..." />}>
-      <textarea class="w-full" value={contents()} />
-    </Suspense>
+    <div class="p-4">
+      <Suspense fallback="Loading...">
+        <Show when={contents()} keyed>
+          {(jsonString) => (
+            <div class="flex flex-col gap-4">
+              <For each={parseJsonFile(jsonString)}>
+                {([key, value]) => (
+                  <div class="flex justify-between gap-2">
+                    <label>{key}</label>
+                    <input
+                      class="text-white w-12 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1"
+                      type="number"
+                      value={value}
+                      oninput={async (e) => {
+                        const newJson = JSON.parse(jsonString);
+                        newJson[key] = e.currentTarget.valueAsNumber;
+                        const newContents = JSON.stringify(newJson, null, 2);
+                        write(newContents);
+                      }}
+                    />
+                  </div>
+                )}
+              </For>
+            </div>
+          )}
+        </Show>
+      </Suspense>
+    </div>
   );
 }
 
