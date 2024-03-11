@@ -59,9 +59,15 @@ TODO:
     ...
   </Switch>
 
-  const ColorField: Component = () => {}
   const NumberField: Component = () => {}
   const StringField: Component = () => {}
+
+  // needs to track color format of input (hex, hsl, rgb, etc.)
+  // then write the color in that same format. maybe internally
+  // ColorField could have a <Switch> to match on each format,
+  // so HSL(A) could get HSL sliders, RGB could have different
+  // sliders?
+  const ColorField: Component = () => {}
 */
 
 const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
