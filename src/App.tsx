@@ -71,8 +71,9 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
               <For each={parseJsonFile(jsonString)}>
                 {([key, value]) => (
                   <div class="flex justify-between gap-2">
-                    <label>{key}</label>
+                    <label for={key}>{key}</label>
                     <input
+                      id={key}
                       class="text-white w-12 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1"
                       type="number"
                       value={value}
