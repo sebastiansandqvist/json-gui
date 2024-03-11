@@ -1,4 +1,4 @@
-import { Component, For, Setter, Show, Suspense, createEffect, createResource, createSignal, onCleanup } from "solid-js";
+import { Component, For, Setter, Show, Suspense, createResource, createSignal } from "solid-js";
 
 const Sidebar: Component<{
   currentFile?: FileSystemFileHandle;
@@ -46,6 +46,23 @@ function parseJsonFile(inputJson: string) {
     (entry): entry is [string, number] => typeof entry[1] === 'number'
   );
 }
+
+/*
+TODO:
+  <Switch fallback={<StringField {...props} />}>
+    <Match when={typeof value === number}>
+      <NumberField {...props} />
+    </Match>
+    <Match when={colorRegex matches value}>
+      <ColorField {...props} />
+    </Match>
+    ...
+  </Switch>
+
+  const ColorField: Component = () => {}
+  const NumberField: Component = () => {}
+  const StringField: Component = () => {}
+*/
 
 const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
   const [contents, { mutate }] = createResource(async () => {
@@ -95,7 +112,7 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
   );
 }
 
-function App() {
+const App: Component = () => {
   const [currentFile, setCurrentFile] = createSignal<FileSystemFileHandle>();
   return (
     <div class="flex h-full">
