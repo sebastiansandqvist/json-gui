@@ -1,4 +1,4 @@
-import { Component, For, Setter, Show, Suspense, createResource, createSignal } from "solid-js";
+import { Component, For, Match, Setter, Show, Suspense, Switch, createResource, createSignal } from "solid-js";
 
 const Sidebar: Component<{
   currentFile?: FileSystemFileHandle;
@@ -7,7 +7,7 @@ const Sidebar: Component<{
   const [jsonFileHandles, setJsonFileHandles] = createSignal<FileSystemFileHandle[]>([]);
 
   return (
-    <aside class="flex flex-col justify-between w-64 p-4 bg-zinc-800 h-full">
+    <aside class="flex flex-col justify-between w-56 p-4 bg-zinc-800 h-full">
       <nav class="grid justify-start">
         <For each={jsonFileHandles()}>
           {(handle) => (
@@ -43,33 +43,78 @@ const Sidebar: Component<{
 function parseJsonFile(inputJson: string) {
   const json = JSON.parse(inputJson);
   return Object.entries(json).filter(
-    (entry): entry is [string, number] => typeof entry[1] === 'number'
+    (entry): entry is [string, number | string] => (typeof entry[1] === 'number') || (typeof entry[1] === 'string')
   );
 }
 
-/*
-TODO:
-  <Switch fallback={<StringField {...props} />}>
-    <Match when={typeof value === number}>
-      <NumberField {...props} />
-    </Match>
-    <Match when={colorRegex matches value}>
-      <ColorField {...props} />
-    </Match>
-    ...
-  </Switch>
+const NumberField: Component<{
+  property: string;
+  value: number;
+  update: (value: number) => Promise<void>;
+}> = (props) => (
+  <div class="flex justify-between gap-2">
+    <label for={props.property}>{props.property}</label>
+    <input
+      id={props.property}
+      class="text-white w-12 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1 font-mono text-sm"
+      type="number"
+      value={props.value}
+      oninput={(e) => props.update(e.currentTarget.valueAsNumber)}
+    />
+  </div>
+);
 
-  const NumberField: Component = () => {}
-  const StringField: Component = () => {}
+const StringField: Component<{
+  property: string;
+  value: string;
+  update: (value: string) => Promise<void>;
+}> = (props) => (
+  <div class="flex justify-between gap-2">
+    <label for={props.property}>{props.property}</label>
+    <input
+      id={props.property}
+      class="text-white min-w-24 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1 font-mono text-sm"
+      type="text"
+      value={props.value}
+      oninput={(e) => props.update(e.currentTarget.value)}
+    />
+  </div>
+);
 
-  // needs to track color format of input (hex, hsl, rgb, etc.)
-  // then write the color in that same format. maybe internally
-  // ColorField could have a <Switch> to match on each format,
-  // so HSL(A) could get HSL sliders, RGB could have different
-  // sliders?
-  const ColorField: Component = () => {}
-*/
+const ColorField: Component<{
+  kind: 'hex'; // | 'hexa' | 'rgb' | 'rgba' | 'hsl' | 'hsla';
+  property: string;
+  value: string;
+  update: (value: string) => Promise<void>;
+}> = (props) => (
+  <div class="flex justify-between gap-2">
+    <label for={props.property}>{props.property}</label>
+    <div class="flex gap-1">
+      <input
+        type="text"
+        class="text-white w-20 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1 font-mono text-sm"
+        value={props.value}
+        onchange={(e) => props.update(e.currentTarget.value)}
+      // TODO: validate before calling update to ensure it's valid hex
+      />
+      <input
+        id={props.property}
+        class="text-white w-8 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1"
+        type="color"
+        value={props.value}
+        onchange={(e) => {
+          // TODO: run the color through a formatter to output
+          // as the desired `kind`
+          props.update(e.currentTarget.value)
+        }}
+      />
+    </div>
+  </div>
+);
 
+const hexRegex = /^#[a-f0-9]{6}$/gi;
+
+// TODO: add an error boundary for parse fails
 const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
   const [contents, { mutate }] = createResource(async () => {
     const file = await props.currentFile.getFile();
@@ -80,9 +125,18 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
 
   const write = async (value: string) => {
     mutate(value);
+    // TODO: do we need to createWritable() and close() on every input or can
+    // those be executed on file open / on cleanup instead?
     const file = await props.currentFile.createWritable();
     await file.write(value);
     await file.close();
+  }
+
+  const updateProperty = async (jsonString: string, key: string, value: string | number) => {
+    const newJson = JSON.parse(jsonString);
+    newJson[key] = value;
+    const newContents = JSON.stringify(newJson, null, 2);
+    await write(newContents);
   }
 
   return (
@@ -93,21 +147,35 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
             <div class="flex flex-col gap-4">
               <For each={parseJsonFile(jsonString)}>
                 {([key, value]) => (
-                  <div class="flex justify-between gap-2">
-                    <label for={key}>{key}</label>
-                    <input
-                      id={key}
-                      class="text-white w-12 rounded shadow-inner shadow-black bg-transparent focus:bg-zinc-950 border border-zinc-600 focus:border-sky-500 outline-0 px-1"
-                      type="number"
-                      value={value}
-                      oninput={async (e) => {
-                        const newJson = JSON.parse(jsonString);
-                        newJson[key] = e.currentTarget.valueAsNumber;
-                        const newContents = JSON.stringify(newJson, null, 2);
-                        write(newContents);
+                  <Switch fallback={
+                    <StringField
+                      property={key}
+                      value={String(value)}
+                      update={async (newValue) => {
+                        await updateProperty(jsonString, key, newValue);
                       }}
                     />
-                  </div>
+                  }>
+                    <Match when={typeof value === 'number'}>
+                      <NumberField
+                        property={key}
+                        value={value as number}
+                        update={async (newValue) => {
+                          await updateProperty(jsonString, key, newValue);
+                        }}
+                      />
+                    </Match>
+                    <Match when={typeof value === 'string' && hexRegex.test(value)}>
+                      <ColorField
+                        kind="hex"
+                        property={key}
+                        value={String(value)}
+                        update={async (newValue) => {
+                          await updateProperty(jsonString, key, newValue);
+                        }}
+                      />
+                    </Match>
+                  </Switch>
                 )}
               </For>
             </div>
