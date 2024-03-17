@@ -4,11 +4,11 @@ import {
   Match,
   Setter,
   Show,
-  Suspense,
   Switch,
-  createResource,
+  createEffect,
   createSignal,
 } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 
 const Sidebar: Component<{
   currentFile?: FileSystemFileHandle;
@@ -56,14 +56,6 @@ const Sidebar: Component<{
     </aside>
   );
 };
-
-function parseJsonFile(inputJson: string) {
-  const json = JSON.parse(inputJson);
-  return Object.entries(json).filter(
-    (entry): entry is [string, number | string] =>
-      typeof entry[1] === "number" || typeof entry[1] === "string",
-  );
-}
 
 const NumberField: Component<{
   property: string;
@@ -134,15 +126,30 @@ const hexRegex = /^#[a-f0-9]{6}$/gi;
 
 // TODO: add an error boundary for parse fails
 const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
-  const [contents, { mutate }] = createResource(async () => {
+  const [obj, setObject] = createStore<Record<string, unknown>>({});
+  let lastUpdate = Date.now();
+  createEffect(async () => {
     const file = await props.currentFile.getFile();
     const text = await file.text();
-    console.log(parseJsonFile(text));
-    return text;
+    const json = JSON.parse(text);
+    setObject(reconcile(json));
+  });
+
+  createEffect(() => {
+    const interval = setInterval(async () => {
+      const file = await props.currentFile.getFile();
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      if (lastUpdate < file.lastModified) {
+        setObject(reconcile(json));
+        lastUpdate = Date.now();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
   });
 
   const write = async (value: string) => {
-    mutate(value);
     // TODO: do we need to createWritable() and close() on every input or can
     // those be executed on file open / on cleanup instead?
     const file = await props.currentFile.createWritable();
@@ -150,64 +157,63 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
     await file.close();
   };
 
-  const updateProperty = async (
-    jsonString: string,
-    key: string,
-    value: string | number,
-  ) => {
-    const newJson = JSON.parse(jsonString);
-    newJson[key] = value;
-    const newContents = JSON.stringify(newJson, null, 2);
+  const updateProperty = async (key: string, value: string | number) => {
+    setObject(reconcile({ ...obj, [key]: value }));
+    lastUpdate = Date.now();
+    const newContents = JSON.stringify(obj, null, 2);
     await write(newContents);
   };
 
   return (
     <div class="p-4">
-      <Suspense fallback="Loading...">
-        <Show when={contents()} keyed>
-          {(jsonString) => (
-            <div class="flex flex-col gap-4">
-              <For each={parseJsonFile(jsonString)}>
-                {([key, value]) => (
-                  <Switch
-                    fallback={
-                      <StringField
-                        property={key}
-                        value={String(value)}
-                        update={async (newValue) => {
-                          await updateProperty(jsonString, key, newValue);
-                        }}
-                      />
-                    }
-                  >
-                    <Match when={typeof value === "number"}>
-                      <NumberField
-                        property={key}
-                        value={value as number}
-                        update={async (newValue) => {
-                          await updateProperty(jsonString, key, newValue);
-                        }}
-                      />
-                    </Match>
-                    <Match
-                      when={typeof value === "string" && hexRegex.test(value)}
-                    >
-                      <ColorField
-                        kind="hex"
-                        property={key}
-                        value={String(value)}
-                        update={async (newValue) => {
-                          await updateProperty(jsonString, key, newValue);
-                        }}
-                      />
-                    </Match>
-                  </Switch>
-                )}
-              </For>
-            </div>
+      <div class="flex flex-col gap-4">
+        <For each={Object.keys(obj)}>
+          {(key) => (
+            <Switch
+              fallback={
+                <StringField
+                  property={key}
+                  value={String(obj[key])}
+                  update={async (newValue) => {
+                    await updateProperty(key, newValue);
+                  }}
+                />
+              }
+            >
+              <Match when={typeof obj[key] === "number"}>
+                <NumberField
+                  property={key}
+                  value={obj[key] as number}
+                  update={async (newValue) => {
+                    await updateProperty(key, newValue);
+                  }}
+                />
+              </Match>
+              <Match
+                when={
+                  typeof obj[key] === "string" &&
+                  hexRegex.test(obj[key] as string)
+                }
+              >
+                <ColorField
+                  kind="hex"
+                  property={key}
+                  value={String(obj[key])}
+                  update={async (newValue) => {
+                    await updateProperty(key, newValue);
+                  }}
+                />
+              </Match>
+              <Match when={typeof obj[key] === "object"}>
+                <p>Object type not implemented for key {key}</p>
+              </Match>
+              <Match when={Array.isArray(obj[key])}>
+                <p>Array type not implemented for key {key}</p>
+              </Match>
+            </Switch>
           )}
-        </Show>
-      </Suspense>
+        </For>
+      </div>
     </div>
   );
 };
