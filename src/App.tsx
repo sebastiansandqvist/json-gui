@@ -112,7 +112,7 @@ const ColorField: Component<{
         class="w-8 rounded border border-zinc-600 bg-transparent px-1 text-white shadow-inner shadow-black outline-0 focus:border-sky-500 focus:bg-zinc-950"
         type="color"
         value={props.value}
-        onchange={(e) => {
+        oninput={(e) => {
           // TODO: run the color through a formatter to output
           // as the desired `kind`
           props.update(e.currentTarget.value);
@@ -121,8 +121,6 @@ const ColorField: Component<{
     </div>
   </div>
 );
-
-const hexRegex = /^#[a-f0-9]{6}$/gi;
 
 // TODO: add an error boundary for parse fails
 const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
@@ -192,7 +190,7 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
               <Match
                 when={
                   typeof obj[key] === "string" &&
-                  hexRegex.test(obj[key] as string)
+                  /^#[a-f0-9]{6}$/gi.test(obj[key] as string)
                 }
               >
                 <ColorField
