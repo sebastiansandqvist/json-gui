@@ -144,7 +144,7 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
         lastUpdate = Date.now();
       }
     }, 1000);
-    return () => clearInterval(interval);
+    onCleanup(() => clearInterval(interval));
   });
 
   const write = async (value: string) => {
