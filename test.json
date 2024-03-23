@@ -1,8 +1,8 @@
 {
-  "height": 26,
-  "width": 14,
+  "height": 17,
+  "width": 256,
   "name": "test",
-  "hex": "#49c6df",
+  "hex": "#05d5ff",
   "hex2": "#abcdef77",
   "rgb": "rgb(50, 100, 200)",
   "rgba": "rgba(50, 100, 200, 0.5)",

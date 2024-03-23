@@ -1,7 +1,5 @@
-import { Component, For, Match, Setter, Show, Switch, createEffect, createSignal } from "solid-js";
+import { Component, For, Match, Setter, Show, Switch, createEffect, createSignal, onCleanup } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
-
-console.log("hi");
 
 const Sidebar: Component<{
   currentFile?: FileSystemFileHandle;
@@ -45,22 +43,97 @@ const Sidebar: Component<{
   );
 };
 
+// createStore()
+
+/*
+{
+  "fileName": {
+    "key1": {
+      "step": .01
+    },
+    "key2": {
+
+    }
+  },
+  "fileName2": {
+
+  }
+}
+*/
+
 const NumberField: Component<{
   property: string;
   value: number;
   update: (value: number) => Promise<void>;
-}> = (props) => (
-  <div class="flex justify-between gap-2">
-    <label for={props.property}>{props.property}</label>
-    <input
-      id={props.property}
-      class="w-12 rounded border border-zinc-600 bg-transparent px-1 font-mono text-sm text-white shadow-inner shadow-black outline-0 focus:border-sky-500 focus:bg-zinc-950"
-      type="number"
-      value={props.value}
-      oninput={(e) => props.update(e.currentTarget.valueAsNumber)}
-    />
-  </div>
-);
+}> = (props) => {
+  const [isPointerDown, setIsPointerDown] = createSignal(false);
+  const [isConfigOpen, setIsConfigOpen] = createSignal(false);
+  const [step, setStep] = createSignal(1);
+  let popover: HTMLDivElement;
+
+  const onDocumentClick = (e: MouseEvent) => {
+    if (!(e.currentTarget instanceof Node)) return;
+    if (!popover.contains(e.currentTarget)) {
+      setIsConfigOpen(false);
+    }
+  };
+
+  document.addEventListener("click", onDocumentClick);
+  onCleanup(() => {
+    document.removeEventListener("click", onDocumentClick);
+  });
+
+  return (
+    <div class="flex justify-between gap-2">
+      <label for={props.property}>{props.property}</label>
+      <div class="relative flex gap-1" ref={popover!}>
+        <input
+          id={props.property}
+          class="w-12 cursor-ew-resize rounded border border-zinc-600 bg-transparent px-1 font-mono text-sm text-white shadow-inner shadow-black outline-0 focus:border-sky-500 focus:bg-zinc-950"
+          type="number"
+          value={props.value}
+          oninput={(e) => props.update(e.currentTarget.valueAsNumber)}
+          onpointerdown={(e) => {
+            e.target.setPointerCapture(e.pointerId);
+            // e.preventDefault();
+            setIsPointerDown(true);
+          }}
+          onpointermove={(e) => {
+            if (!isPointerDown()) return;
+            console.log(e.movementX);
+            props.update(props.value + e.movementX * step());
+          }}
+          onpointerup={() => {
+            setIsPointerDown(false);
+          }}
+        />
+        <button
+          onclick={() => {
+            setIsConfigOpen((wasOpen) => !wasOpen);
+          }}
+        >
+          ...
+        </button>
+        <Show when={isConfigOpen()}>
+          <div class="absolute right-0 top-full z-10 bg-zinc-800 shadow">
+            <label class="flex gap-2">
+              step
+              <input
+                type="text"
+                class="w-12 cursor-ew-resize rounded border border-zinc-600 bg-transparent px-1 font-mono text-sm text-white shadow-inner shadow-black outline-0 focus:border-sky-500 focus:bg-zinc-950"
+                value={step()}
+                oninput={(e) => {
+                  const n = parseFloat(e.currentTarget.value);
+                  if (!Number.isNaN(n)) setStep(n);
+                }}
+              />
+            </label>
+          </div>
+        </Show>
+      </div>
+    </div>
+  );
+};
 
 const StringField: Component<{
   property: string;
