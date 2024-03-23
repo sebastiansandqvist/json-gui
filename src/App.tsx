@@ -1,22 +1,13 @@
-import {
-  Component,
-  For,
-  Match,
-  Setter,
-  Show,
-  Switch,
-  createEffect,
-  createSignal,
-} from "solid-js";
+import { Component, For, Match, Setter, Show, Switch, createEffect, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
+
+console.log("hi");
 
 const Sidebar: Component<{
   currentFile?: FileSystemFileHandle;
   setCurrentFile: Setter<FileSystemFileHandle | undefined>;
 }> = (props) => {
-  const [jsonFileHandles, setJsonFileHandles] = createSignal<
-    FileSystemFileHandle[]
-  >([]);
+  const [jsonFileHandles, setJsonFileHandles] = createSignal<FileSystemFileHandle[]>([]);
 
   return (
     <aside class="flex h-full w-56 flex-col justify-between bg-zinc-800 p-4">
@@ -41,10 +32,7 @@ const Sidebar: Component<{
         onclick={async () => {
           const folder = await window.showDirectoryPicker();
           for await (const handle of folder.values()) {
-            if (
-              handle.kind === "file" &&
-              handle.name.toLowerCase().endsWith(".json")
-            ) {
+            if (handle.kind === "file" && handle.name.toLowerCase().endsWith(".json")) {
               console.log(handle.name);
               setJsonFileHandles((prev) => prev.concat(handle));
             }
@@ -187,12 +175,7 @@ const Editor: Component<{ currentFile: FileSystemFileHandle }> = (props) => {
                   }}
                 />
               </Match>
-              <Match
-                when={
-                  typeof obj[key] === "string" &&
-                  /^#[a-f0-9]{6}$/gi.test(obj[key] as string)
-                }
-              >
+              <Match when={typeof obj[key] === "string" && /^#[a-f0-9]{6}$/gi.test(obj[key] as string)}>
                 <ColorField
                   kind="hex"
                   property={key}
