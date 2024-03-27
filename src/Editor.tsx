@@ -54,8 +54,7 @@ const NumberField: Component<{
   let popover: HTMLDivElement;
 
   const onDocumentClick = (e: MouseEvent) => {
-    if (!(e.currentTarget instanceof Node)) return;
-    if (!popover.contains(e.currentTarget)) {
+    if (e.target instanceof Node && !popover.contains(e.target)) {
       setIsConfigOpen(false);
     }
   };
