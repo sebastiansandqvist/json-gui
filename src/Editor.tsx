@@ -43,24 +43,6 @@ export const Sidebar: Component<{
   );
 };
 
-// createStore()
-
-/*
-{
-  "fileName": {
-    "key1": {
-      "step": .01
-    },
-    "key2": {
-
-    }
-  },
-  "fileName2": {
-
-  }
-}
-*/
-
 const NumberField: Component<{
   property: string;
   value: number;
@@ -95,7 +77,6 @@ const NumberField: Component<{
           oninput={(e) => props.update(e.currentTarget.valueAsNumber)}
           onpointerdown={(e) => {
             e.target.setPointerCapture(e.pointerId);
-            // e.preventDefault();
             setIsPointerDown(true);
           }}
           onpointermove={(e) => {
